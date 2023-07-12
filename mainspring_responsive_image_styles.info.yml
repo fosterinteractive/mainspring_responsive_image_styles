@@ -2,3 +2,5 @@ name: Mainspring Responsive Image Styles
 type: module
 description: Provides custom twig function for image styles
 core_version_requirement: ^9 || ^10
+dependencies:
+  - layout_paragraphs:layout_paragraphs
