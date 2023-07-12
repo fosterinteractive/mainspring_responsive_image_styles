@@ -1,0 +1,6 @@
+services:
+  mainspring_responsive_image_styles.twig_extension:
+    class: Drupal\mainspring_responsive_image_styles\TwigMainspringExtension
+    arguments: ['@theme_handler', '@messenger', '@current_user']
+    tags:
+      - { name: twig.extension }

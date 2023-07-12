@@ -1,0 +1,68 @@
+<?php
+
+/**
+ * @file
+ * This is the mainspring_responsive_image_styles module.
+ *
+ * It adds the paragraphs layout configuration to paragraphs as variables.
+ */
+
+/**
+ * Implements hook_preprocess_paragraph().
+ */
+function mainspring_responsive_image_styles_preprocess_paragraph(array &$variables) {
+  $paragraph = $variables['paragraph'];
+
+  // PARAGRAPH LAYOUT / REGION VARIABLES.
+  // Determine the layout and region a paragraph is in so we can set a specific
+  // reponsive image style based on the layout. e.g. if a image is in a 4 col.
+  $behavior_settings = $paragraph->getAllBehaviorSettings();
+  $layout_paragraphs_settings = $behavior_settings['layout_paragraphs'] ?? [];
+  if (!empty($layout_paragraphs_settings['parent_uuid']) && $parent = $paragraph->getParentEntity()) {
+    $parent_field = $paragraph->get('parent_field_name');
+    $field_name = $parent_field->first()->getString();
+    // If the parent delta is set then we can get the layout paragraph to
+    // determine which layout is used.
+    if (isset($layout_paragraphs_settings['parent_delta'])) {
+      $parent_delta = $layout_paragraphs_settings['parent_delta'];
+      $field = $paragraph->getParentEntity()->get($field_name)->get($parent_delta);
+      if (!empty($field)) {
+        $layout_paragraph = $field->get('entity')->getTarget()->getValue();
+        $layout_settings = $layout_paragraph->getAllBehaviorSettings();
+
+        $variables['paragraph_layout'] = $layout_settings['layout_paragraphs']['layout'];
+        $variables['paragraph_columns'] = $layout_settings['layout_paragraphs']['config']['classes']['section_layout'] ?? NULL;
+        $variables['paragraph_region'] = $layout_paragraphs_settings['region'];
+      }
+    }
+    // It seems that paragraphs presave dosn't work on the initial save of a
+    // paragraph so a new paragraph is missing it's parent delta. If that is the
+    // case then we can figure out what the delta is by the parent uuid.
+    else {
+      $parent_field = $paragraph->get('parent_field_name');
+      $field_name = $parent_field->first()->getString();
+      $item_list = $parent->get($field_name);
+      /** @var \Drupal\Core\Field\EntityReferenceFieldItemList $item_list */
+      $sibling_paragraphs = $item_list->referencedEntities();
+      if (count($sibling_paragraphs)) {
+        $uuid_map = [];
+        foreach ($sibling_paragraphs as $delta => $item) {
+          $uuid_map[$item->uuid()] = $delta;
+        }
+
+        $parent_delta = $uuid_map[$layout_paragraphs_settings['parent_uuid']] ?? NULL;
+        if (isset($parent_delta)) {
+          $field = $paragraph->getParentEntity()->get($field_name)->get($parent_delta);
+          if (!empty($field)) {
+            $layout_paragraph = $field->get('entity')->getTarget()->getValue();
+            $layout_settings = $layout_paragraph->getAllBehaviorSettings();
+
+            $variables['paragraph_layout'] = $layout_settings['layout_paragraphs']['layout'];
+            $variables['paragraph_columns'] = $layout_settings['layout_paragraphs']['config']['classes']['section_layout'] ?? NULL;
+            $variables['paragraph_region'] = $layout_paragraphs_settings['region'];
+          }
+        }
+      }
+    }
+  }
+}
