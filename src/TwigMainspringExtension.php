@@ -101,10 +101,26 @@ class TwigMainspringExtension extends AbstractExtension {
       }
     }
 
-    $responsive_image_style = '';
+    // If layout or section_layout are empty then this probably means that the
+    // paragraph has been added to a new section on node edit that has not been
+    // saved. Since the layout section has not been created yet the information
+    // is not available to te paragraph so we need to just default to the
+    // largest possible image sizes. This is defined in the
+    // theme.responsive_image_layouts.yml as the fallback option.
+    if (empty($layout) || empty($section_layout)) {
+      $layout = key($data['fallback']);
+      $section_layout = $data['fallback'][$layout];
+    }
 
+    // Used to store the responsive image style that is determined from checking
+    // the theme.responsive_image_layouts.yml file in the theme.
+    $responsive_image_style = '';
+    // If we can find a matching responsive image style in the file.
     if (isset($data[$layout][$section_layout][$image_style])) {
       $option = $data[$layout][$section_layout][$image_style];
+      // If the option is an array it means that this is multiple columns and
+      // the zone should be used to figure out what array index is the correct
+      // image style.
       if (is_array($option)) {
         if (!empty($zone)) {
           $n = trim($zone, 'zone');
