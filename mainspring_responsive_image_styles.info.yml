@@ -6,4 +6,4 @@ core_version_requirement: ^9 || ^10
 dependencies:
   - layout_paragraphs:layout_paragraphs
 
-version: '1.0.2'
+version: '1.0.3'
