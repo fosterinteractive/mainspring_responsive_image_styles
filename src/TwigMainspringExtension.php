@@ -70,6 +70,7 @@ class TwigMainspringExtension extends AbstractExtension {
   public function getFunctions(): array {
     $functions = [
       new TwigFunction('mainspring_responsive_image_style', [$this, 'responsiveImageStyle']),
+      new TwigFunction('mainspring_responsive_image', [$this, 'responsiveImage']),
     ];
 
     return $functions;
@@ -151,6 +152,28 @@ class TwigMainspringExtension extends AbstractExtension {
     }
 
     return $responsive_image_style;
+  }
+
+  /**
+   * Creates a responsive image.
+   *
+   * @param mixed $image
+   *   The image field.
+   * @param string $responsive_image_style
+   *   The responsive image style.
+   * @param array $image_attributes
+   *   The image field attributes.
+   *
+   * @return array
+   *   The responsive image formatter render array.
+   */
+  public function responsiveImage($image, $responsive_image_style, array $image_attributes = []) {
+    return [
+      '#theme' => 'responsive_image_formatter',
+      '#item' => $image,
+      '#item_attributes' => $image_attributes,
+      '#responsive_image_style_id' => $responsive_image_style,
+    ];
   }
 
 }
