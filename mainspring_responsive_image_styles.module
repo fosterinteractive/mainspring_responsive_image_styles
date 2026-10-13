@@ -38,8 +38,11 @@ function mainspring_responsive_image_styles_preprocess_paragraph(array &$variabl
       $parent_delta = $uuid_map[$layout_paragraphs_settings['parent_uuid']] ?? NULL;
       if (isset($parent_delta)) {
         $field = $paragraph->getParentEntity()->get($field_name)->get($parent_delta);
-        if (!empty($field)) {
-          $layout_paragraph = $field->get('entity')->getTarget()->getValue();
+        // Skip the layout variables if the section paragraph can't be loaded
+        // (e.g. a missing revision) instead of a fatal error on NULL.
+        $target = !empty($field) ? $field->get('entity')->getTarget() : NULL;
+        if ($target) {
+          $layout_paragraph = $target->getValue();
           $layout_settings = $layout_paragraph->getAllBehaviorSettings();
 
           $variables['paragraph_layout'] = $layout_settings['layout_paragraphs']['layout'] ?? NULL;
