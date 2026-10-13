@@ -5,7 +5,9 @@ Does two independent things for Mainspring sites:
 1. **`sizes="auto"`**: adds `auto` to the `sizes` attribute of lazy-loaded
    responsive images, so browsers choose the image file from the width the
    image actually renders at. Works on any site as soon as the module is
-   enabled. No theme changes and no YAML file.
+   enabled, for images rendered through a responsive image style (plain image
+   style formatters have no `sizes` and are unaffected). No theme changes and
+   no YAML file.
 2. **Layout-based responsive image styles** (optional): a Twig function that
    picks a responsive image style from the Layout Paragraphs section and
    column a paragraph sits in, driven by a YAML file in the theme.
@@ -13,6 +15,25 @@ Does two independent things for Mainspring sites:
 You can use the first without the second. Sites that only want `sizes="auto"`
 enable the module and do nothing else; see
 [Using it only for sizes="auto"](#using-it-only-for-sizesauto).
+
+> **Planned deprecation.** This module is a stopgap. Both features become
+> unnecessary over time, and the module will then be removed:
+>
+> - **`sizes="auto"`** will move into Drupal core:
+>   [#3587098](https://www.drupal.org/project/drupal/issues/3587098) adds
+>   `auto` to lazy-loaded responsive images. It changes code that only exists
+>   in Drupal 11.3+, so Drupal 10 sites keep needing this module until they
+>   upgrade. Once a site runs a core version with the fix, this module's
+>   change is redundant but harmless (values already starting with `auto` are
+>   skipped). Turn it off with the setting below or remove the module.
+> - **Layout-based responsive image styles** only exist to give browsers
+>   without `sizes="auto"` support (mainly Safari before 27) an accurate
+>   `sizes` list. Once Safari 27+ has enough market share on a site's
+>   audience (check the site's analytics), replace the per-layout styles with
+>   one responsive image style per aspect ratio whose `sizes` is `auto`
+>   followed by a simple fallback (e.g. `auto, 100vw`), and drop the Twig
+>   function and the YAML file. Eager images such as heroes still need an
+>   explicit `sizes`, because browsers ignore `auto` on them.
 
 ## Requirements
 
@@ -66,8 +87,11 @@ image:
   attribute). Eager images, such as heroes set to `loading="eager"`, are left
   alone, because the HTML spec only allows `auto` on lazy images.
 - **Which tags:** the `<img>` (single-image and `<picture>` fallback) and
-  every `<source>` inside `<picture>`. It runs before the WebP module, so the
-  WebP `<source>` copies get `auto` too.
+  every `<source>` inside `<picture>`. If the site uses the WebP module, this
+  hook runs before it (both have module weight 0, so they run alphabetically),
+  so the WebP `<source>` copies get `auto` too. With core's "Convert to WebP"
+  image style effect and the WPF module there are no extra `<source>`
+  elements, and WPF only swaps the `<img src>` fallback, so `auto` is kept.
 - **Values already starting with `auto`** are left as they are, and empty
   `sizes` values are skipped.
 - **No escaping change:** the raw attribute value is read and written, so
