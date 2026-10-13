@@ -115,8 +115,15 @@ site at 1440px wide (1x screen):
 | Test page, 34 images across every section layout | ~2.2 MB | ~0.9 MB |
 
 Browsers that don't support `auto` (before Chrome/Edge 126, Firefox 150,
-Safari 27) ignore it and use the rest of the list, so they behave exactly as
+Safari 27\*) ignore it and use the rest of the list, so they behave exactly as
 before. Accurate theme `sizes` values still matter for them.
+
+\* Safari 27 support is partial: SVG images that use `sizes="auto"` together
+with CSS `object-fit` can render distorted
+([WebKit bug 324661](https://bugs.webkit.org/show_bug.cgi?id=324661), open as
+of October 2026). Raster images (JPEG, PNG, WebP) are unaffected. If a site
+renders SVGs through a responsive image style with `object-fit`, check them in
+Safari 27.
 
 ### Checking it in a browser
 
