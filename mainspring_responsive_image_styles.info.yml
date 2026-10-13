@@ -4,6 +4,7 @@ description: 'Provides a Twig function for layout-based responsive image styles 
 package: Mainspring
 core_version_requirement: ^9 || ^10
 dependencies:
+  - drupal:responsive_image
   - layout_paragraphs:layout_paragraphs
 
 version: '1.1.0'
