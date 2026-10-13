@@ -4,8 +4,13 @@
  * @file
  * This is the mainspring_responsive_image_styles module.
  *
- * It adds the paragraphs layout configuration to paragraphs as variables.
+ * It adds the paragraphs layout configuration to paragraphs as variables, and
+ * prepends "auto" to the sizes attribute of lazy-loaded responsive images.
  */
+
+use Drupal\Core\Site\Settings;
+use Drupal\Core\Template\Attribute;
+use Drupal\Core\Template\AttributeValueBase;
 
 /**
  * Implements hook_preprocess_paragraph().
@@ -44,4 +49,74 @@ function mainspring_responsive_image_styles_preprocess_paragraph(array &$variabl
       }
     }
   }
+}
+
+/**
+ * Implements hook_preprocess_HOOK() for responsive_image.
+ *
+ * Prepends "auto" to the sizes attribute of lazy-loaded responsive images so
+ * browsers that support sizes="auto" pick a srcset candidate from the image's
+ * rendered width. Other browsers ignore "auto" and use the rest of the list.
+ * Per the HTML spec "auto" only applies to loading="lazy" images, so eager
+ * images are left untouched.
+ *
+ * Opt out per site with $settings['mainspring_sizes_auto'] = FALSE;
+ *
+ * @see https://html.spec.whatwg.org/multipage/images.html#sizes-attributes
+ */
+function mainspring_responsive_image_styles_preprocess_responsive_image(array &$variables): void {
+  if (!Settings::get('mainspring_sizes_auto', TRUE)) {
+    return;
+  }
+
+  // Mirror template_preprocess_image(): an image with dimensions and no
+  // loading attribute is rendered with loading="lazy".
+  $img = $variables['img_element'] ?? [];
+  $loading = $img['#attributes']['loading'] ?? NULL;
+  if ($loading === NULL) {
+    $loading = isset($img['#width'], $img['#height']) ? 'lazy' : '';
+  }
+  if (strtolower(trim((string) $loading)) !== 'lazy') {
+    return;
+  }
+
+  // <img srcset sizes> (single image tag, and the <picture> fallback img).
+  if (isset($img['#attributes']['sizes'])) {
+    $sizes = _mainspring_responsive_image_styles_sizes_auto($img['#attributes']['sizes']);
+    if ($sizes !== NULL) {
+      $variables['img_element']['#attributes']['sizes'] = $sizes;
+    }
+  }
+
+  // <picture><source sizes>. Runs before webp (module weight 0, alphabetical),
+  // so the webp <source> clones inherit the change.
+  foreach ($variables['sources'] ?? [] as $source) {
+    if ($source instanceof Attribute && $source->hasAttribute('sizes')) {
+      $sizes = _mainspring_responsive_image_styles_sizes_auto($source['sizes']);
+      if ($sizes !== NULL) {
+        $source->setAttribute('sizes', $sizes);
+      }
+    }
+  }
+}
+
+/**
+ * Prepends "auto, " to a sizes value unless it already starts with "auto".
+ *
+ * @param mixed $sizes
+ *   The sizes value: a string or an AttributeValueBase object.
+ *
+ * @return string|null
+ *   The raw (unescaped) sizes value starting with "auto", or NULL if empty.
+ */
+function _mainspring_responsive_image_styles_sizes_auto($sizes): ?string {
+  // Use the raw value: casting an AttributeString to string HTML-escapes it,
+  // which would be escaped again on output (e.g. "(width >= 768px)").
+  if ($sizes instanceof AttributeValueBase) {
+    $sizes = $sizes->value();
+  }
+  if (!is_string($sizes) || trim($sizes) === '') {
+    return NULL;
+  }
+  return preg_match('/^\s*auto\s*(,|$)/i', $sizes) ? $sizes : 'auto, ' . $sizes;
 }
