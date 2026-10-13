@@ -1,0 +1,36 @@
+name: Check tag
+
+# Fails when a tag pushed by hand doesn't match `version:` in the .info.yml.
+# Tags created by the Release workflow always match (and don't trigger this).
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@v4
+
+      - name: Compare the tag with the .info.yml version
+        run: |
+          tag="$GITHUB_REF_NAME"
+          shopt -s nullglob
+          files=( *.info.yml )
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one .info.yml in the repo root, found ${#files[@]}."
+            exit 1
+          fi
+          info="${files[0]}"
+          version="$(sed -nE "s/^version:[[:space:]]*['\"]?([^'\"[:space:]]+)['\"]?.*/\1/p" "$info")"
+          if [ "$version" != "$tag" ]; then
+            echo "::error file=$info::Tag $tag doesn't match $info (version: '${version:-missing}'). Release with Actions → Release instead of tagging by hand, or bump version: before tagging."
+            exit 1
+          fi
+          echo "Tag $tag matches $info."

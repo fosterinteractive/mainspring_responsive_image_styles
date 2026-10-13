@@ -1,0 +1,107 @@
+name: Release
+
+# Run from Actions → Release → Run workflow. Sets `version:` in the module's
+# .info.yml to the version entered, commits it to main, and tags that commit,
+# so the Drupal version and the Composer (git tag) version always match.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.0.2 (no v prefix)"
+        required: true
+        type: string
+      summary:
+        description: "Optional summary for the top of the release notes"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      SUMMARY: ${{ inputs.summary }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate the version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$VERSION' is not a version like 1.0.2 (three numbers, no v prefix)."
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::Tag $VERSION already exists. Pick the next version."
+            exit 1
+          fi
+          # The newest existing release tag, for the release notes.
+          prev="$(git tag --list '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+          echo "PREV_TAG=$prev" >> "$GITHUB_ENV"
+
+      - name: Set the version in the .info.yml
+        run: |
+          shopt -s nullglob
+          files=( *.info.yml )
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one .info.yml in the repo root, found ${#files[@]}."
+            exit 1
+          fi
+          info="${files[0]}"
+          if grep -q '^version:' "$info"; then
+            sed -i -E "s/^version:.*/version: '$VERSION'/" "$info"
+          else
+            printf "version: '%s'\n" "$VERSION" >> "$info"
+          fi
+          grep -qx "version: '$VERSION'" "$info"
+          echo "INFO_FILE=$info" >> "$GITHUB_ENV"
+
+      - name: Commit, tag and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$INFO_FILE"
+          if git diff --cached --quiet; then
+            echo "$INFO_FILE already says $VERSION; tagging the current commit."
+          else
+            git commit -m "Release $VERSION"
+            git push origin HEAD:main
+          fi
+          git tag "$VERSION"
+          git push origin "refs/tags/$VERSION"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            if [ -n "$SUMMARY" ]; then
+              printf '%s\n\n' "$SUMMARY"
+            fi
+            echo "## Changes"
+            if [ -n "$PREV_TAG" ]; then range="$PREV_TAG..$VERSION"; else range="$VERSION"; fi
+            changes="$(git log --no-merges --format='- %s' "$range" | grep -vE '^- Release [0-9]+\.[0-9]+\.[0-9]+$' || true)"
+            echo "${changes:-- Version bump only}"
+            echo
+            if [ -n "$PREV_TAG" ]; then
+              echo "**Full changelog:** [$PREV_TAG...$VERSION]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$PREV_TAG...$VERSION)"
+              echo
+            fi
+            echo "Install: \`composer require fosterinteractive/${GITHUB_REPOSITORY#*/}:$VERSION\`"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$VERSION" --verify-tag --title "$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          {
+            echo "### Released $VERSION"
+            cat "$RUNNER_TEMP/notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
