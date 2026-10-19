@@ -2,7 +2,7 @@ name: Mainspring Responsive Image Styles
 type: module
 description: 'Provides a Twig function for layout-based responsive image styles and adds sizes="auto" to lazy-loaded responsive images.'
 package: Mainspring
-core_version_requirement: ^9 || ^10
+core_version_requirement: ^10 || ^11
 dependencies:
   - drupal:responsive_image
   - layout_paragraphs:layout_paragraphs
